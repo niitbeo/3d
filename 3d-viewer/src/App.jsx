@@ -464,12 +464,12 @@ export default function App() {
             </div>
             {isGenerating3D ? (
               <div style={{ marginTop: '20px' }}>
-                <ProgressBar label="BƯỚC 5: Đang dựng Mesh 3D (STABLE FAST 3D)..." progress={generate3dProgress} />
+                <ProgressBar label="BƯỚC 5: Đang dựng Mesh 3D (TRELLIS 4B)..." progress={generate3dProgress} />
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                 <button className="upload-btn" style={{ flex: 1, background: 'rgba(255, 255, 255, 0.1)', borderColor: 'transparent' }} onClick={() => setStep(3)}>&larr; Quay lại</button>
-                <button className="upload-btn" style={{ flex: 2, background: 'linear-gradient(90deg, #ff8a00, #e52e71)', color: 'white', borderColor: 'transparent' }} onClick={handleGenerate3D}>Dựng Lưới 3D (STABLE FAST 3D) &rarr;</button>
+                <button className="upload-btn" style={{ flex: 2, background: 'linear-gradient(90deg, #ff8a00, #e52e71)', color: 'white', borderColor: 'transparent' }} onClick={handleGenerate3D}>Dựng Lưới 3D (TRELLIS 4B) &rarr;</button>
               </div>
             )}
           </div>
@@ -477,7 +477,7 @@ export default function App() {
 
         {step === 5 && !isGenerating3D && generate3dData && (
           <div style={{ marginTop: '20px', background: 'rgba(0,0,0,0.4)', padding: '20px', borderRadius: '12px' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>BƯỚC 5: 3D RECONSTRUCTION (STABLE FAST 3D)</h3>
+            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>BƯỚC 5: 3D RECONSTRUCTION (TRELLIS 4B)</h3>
             <p style={{ fontSize: '14px', color: '#aaa', marginBottom: '15px' }}>Lưới Mesh đã được tạo và tinh chỉnh với dữ liệu conditioning.</p>
             
             <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
@@ -557,9 +557,9 @@ export default function App() {
         }}>
           {generate3dLogs.length === 0 ? (
             <div style={{ opacity: 0.7, paddingBottom: '20px' }}>
-              <div style={{ fontSize: '18px', color: '#fff', marginBottom: '10px' }}>[STABLE FAST 3D] INITIALIZING...</div>
+              <div style={{ fontSize: '18px', color: '#fff', marginBottom: '10px' }}>[TRELLIS 4B] INITIALIZING...</div>
               <div>&gt; Checking quality gate...</div>
-              <div>&gt; Loading Checkpoint stabilityai/stable-fast-3d (FP16)...</div>
+              <div>&gt; Loading Checkpoint microsoft/TRELLIS.2-4B (FP16)...</div>
               <div>&gt; Please wait...</div>
             </div>
           ) : (
