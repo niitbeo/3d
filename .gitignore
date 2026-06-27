@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.egg
+
+# Node
+node_modules/
+dist/
+
+# Model weights & large files
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+*.pkl
+
+# Output directories
+bg_removal/output/
+geometry/output/
+geometry/stage4_out/
+geometry/stage5_out/
+geometry/stage6_out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+generate.log
+run_output.log
+
+# Temp
+/tmp/
+*.tmp
+
+# Git submodules (trellis-mac has its own .git)
+trellis-mac/.git
+
+# HuggingFace cache
+.cache/
