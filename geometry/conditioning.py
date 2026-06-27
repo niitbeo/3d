@@ -298,7 +298,7 @@ def main():
     end_time = time.time()
     
     print("=" * 40)
-    print("✅ PRODUCTION CONDITIONING COMPLETE")
+    print("PRODUCTION CONDITIONING COMPLETE")
     print(f"Base name:       {base_name}")
     print(f"Execution Time:  {end_time - start_time:.3f}s")
     print(f"Status:          {metrics['status']}")

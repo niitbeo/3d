@@ -161,7 +161,7 @@ def main():
         json.dump(report, f, indent=4)
         
     print("=" * 40)
-    print("✅ PBR TEXTURE ENGINE COMPLETE")
+    print("PBR TEXTURE ENGINE COMPLETE")
     print(f"Time: {time.time() - t_start:.2f}s")
     print("=" * 40)
 

@@ -69,13 +69,8 @@ def process_image(input_path, output_path, canvas_size=2048, target_scale=0.85):
         scale_factor = target_w / w
         target_h = int(h * scale_factor)
     
-    # Resize the subject using INTER_AREA or LINEAR to avoid ringing and black halos on RGBA
-    # To completely avoid halos, we separate RGB and Alpha, 
-    # dilate pure foreground RGB into the semi-transparent/transparent areas, resize, then apply resized alpha.
-    inpaint_mask = (alpha_refined < 255).astype(np.uint8)
-    rgb_dilated = cv2.inpaint(rgb_corrected, inpaint_mask, 7, cv2.INPAINT_TELEA)
-    
-    rgb_resized = cv2.resize(rgb_dilated, (target_w, target_h), interpolation=cv2.INTER_CUBIC)
+    # Resize RGB and Alpha separately to avoid black halos
+    rgb_resized = cv2.resize(rgb_corrected, (target_w, target_h), interpolation=cv2.INTER_CUBIC)
     alpha_resized = cv2.resize(alpha_refined, (target_w, target_h), interpolation=cv2.INTER_CUBIC)
     
     subject_resized = np.dstack((rgb_resized, alpha_resized))
@@ -105,7 +100,7 @@ def process_image(input_path, output_path, canvas_size=2048, target_scale=0.85):
     end_time = time.time()
     
     print("=" * 40)
-    print("✅ CANONICALIZATION COMPLETE")
+    print("CANONICALIZATION COMPLETE")
     print(f"Original Size:   {orig_w}x{orig_h}")
     print(f"Crop Size:       {w}x{h}")
     print(f"Scale Factor:    {scale_factor:.3f}x")

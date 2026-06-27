@@ -144,7 +144,7 @@ def process_geometry(input_path, output_dir):
     GeometryExporter.export(output_dir, base_name, rgb_original, processed_depth, normals)
     
     print("=" * 40)
-    print("✅ GEOMETRY ESTIMATION COMPLETE")
+    print("GEOMETRY ESTIMATION COMPLETE")
     print(f"Inference Time: {time.time() - start_time:.2f}s")
     print(f"Output Directory: {output_dir}")
     print("=" * 40)

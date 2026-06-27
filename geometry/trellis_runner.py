@@ -2,9 +2,8 @@ import sys
 import os
 
 # ----------------- ENVIRONMENT SETUP -----------------
-TRELLIS_MAC_DIR = "/Users/nguyenletruong/3d/trellis-mac"
-sys.path.insert(0, os.path.join(TRELLIS_MAC_DIR, "TRELLIS.2"))
-sys.path.append(os.path.join(TRELLIS_MAC_DIR, "stubs"))
+TRELLIS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "trellis"))
+sys.path.insert(0, TRELLIS_DIR)
 
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 os.environ.setdefault("ATTN_BACKEND", "sdpa")
@@ -26,7 +25,7 @@ import cv2
 import torch
 from PIL import Image as PILImage
 import trimesh
-from trellis2.pipelines.trellis2_image_to_3d import Trellis2ImageTo3DPipeline
+from trellis.pipelines.trellis_image_to_3d import TrellisImageTo3DPipeline
 
 class InputLoader:
     @staticmethod
@@ -69,18 +68,18 @@ class FeatureEncoder:
         return latent
 
 class TRELLISRunner:
-    def __init__(self, device="mps"):
+    def __init__(self, device="cuda"):
         print("[TRELLISRunner] Initializing Pretrained Pipeline...")
         t0 = time.time()
-        self.device = torch.device(device if torch.backends.mps.is_available() else "cpu")
-        self.pipeline = Trellis2ImageTo3DPipeline.from_pretrained("microsoft/TRELLIS.2-4B")
+        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
+        self.pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
         
         # Remove manual float16 casting as it breaks MPS Sparse Matrix Multiplication
         # Relying on PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 for memory swapping instead
             
         self.pipeline.to(self.device)
-        if torch.backends.mps.is_available():
-            torch.mps.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         print(f"[TRELLISRunner] Pipeline loaded in {time.time() - t0:.1f}s")
         
     def run(self, latent, seed=42):
@@ -91,7 +90,7 @@ class TRELLISRunner:
         outputs = self.pipeline.run(
             latent["rgb_pil"],
             seed=seed,
-            pipeline_type="512", # Coarse mesh
+            formats=['mesh'], # Coarse mesh
         )
         
         mesh_out = outputs[0] if isinstance(outputs, list) else outputs
@@ -178,7 +177,7 @@ class ReportExporter:
             "mesh_density": 0.95, # Giả lập điểm mật độ
             "euler_number": val_stats["euler_number"],
             "inference_time": round(inf_time, 2),
-            "device": "mps" if torch.backends.mps.is_available() else "cpu",
+            "device": "cuda" if torch.cuda.is_available() else "cpu",
             "status": "PASS" if len(mesh.vertices) > 100 else "FAIL"
         }
         
@@ -236,7 +235,7 @@ def main():
     end_time = time.time()
     
     print("=" * 40)
-    print("✅ IMAGE-TO-3D RECONSTRUCTION COMPLETE")
+    print("IMAGE-TO-3D RECONSTRUCTION COMPLETE")
     print(f"Base name:       {base_name}")
     print(f"Vertices:        {report['vertices']:,}")
     print(f"Faces:           {report['faces']:,}")

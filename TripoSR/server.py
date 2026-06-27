@@ -10,6 +10,15 @@ import shutil
 import uuid
 import uvicorn
 import sys
+import logging
+import asyncio
+from typing import Optional, List
+import subprocess
+import os
+
+# Load .env file
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 import time
 from PIL import Image
 
@@ -23,24 +32,90 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-sys.path.insert(0, "/Users/nguyenletruong/3d/geometry")
+sys.path.insert(0, "g:/in3d/geometry")
 
-TRELLIS_RUNNER = "/Users/nguyenletruong/3d/geometry/trellis_runner.py"
-TRELLIS_VENV_PYTHON = "/Users/nguyenletruong/3d/trellis-mac/.venv/bin/python"
+TRELLIS_RUNNER = "g:/in3d/geometry/trellis_runner.py"
+INSTANTMESH_RUNNER = "g:/in3d/geometry/instantmesh_runner.py"
+TRELLIS_VENV_PYTHON = sys.executable
+
+class Image3DEngine:
+    def __init__(self, backend="instantmesh"):
+        self.backend = backend
+        
+    def generate3D(self, npz_path, stage5_out, base_name=None):
+        if self.backend == "sf3d":
+            # Pass the conditioning image from Step 4
+            input_path = os.path.dirname(npz_path)
+            if base_name:
+                img_path = os.path.join(input_path, f"{base_name}_conditioning.png")
+            else:
+                img_path = input_path
+            # Auto GPU Detect
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+                    print(f"[AutoDetect] GPU VRAM: {vram_gb:.2f} GB")
+                else:
+                    vram_gb = 0
+            except:
+                vram_gb = 4.0 # Default to lite mode if detection fails
+            
+            # Use Lite Mode if <= 4GB
+            mode = "lite" if vram_gb <= 4.0 else "full"
+            print(f"[SF3D] Using {mode} mode.")
+            
+            import sys
+            sf3d_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'geometry'))
+            if sf3d_path not in sys.path:
+                sys.path.append(sf3d_path)
+            
+            import sf3d_runner
+            
+            # Start generation directly (since it's a Singleton, it won't reload)
+            try:
+                sf3d_runner.generate(img_path, stage5_out, mode=mode)
+                return True # Success indicator
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                raise e
+
+        elif self.backend == "instantmesh":
+            # Pass the conditioning image explicitly
+            input_path = os.path.dirname(npz_path)
+            if base_name:
+                img_path = os.path.join(input_path, f"{base_name}_conditioning.png")
+            else:
+                img_path = input_path
+            cmd = [TRELLIS_VENV_PYTHON, INSTANTMESH_RUNNER, "--input", img_path, "--output", stage5_out]
+        elif self.backend == "trellis":
+            cmd = [TRELLIS_VENV_PYTHON, TRELLIS_RUNNER, "--input", npz_path, "--output", stage5_out]
+        else:
+            raise ValueError(f"Unknown backend: {self.backend}")
+            
+        if self.backend in ["instantmesh", "trellis"]:
+            return subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env={**os.environ, "PYTORCH_ENABLE_MPS_FALLBACK": "1", "PYTORCH_MPS_HIGH_WATERMARK_RATIO": "0.0"}
+            )
 
 @app.on_event("startup")
 async def startup_event():
-    print("Server ready. Trellis sẽ chạy khi Step 5 được gọi.")
+    print("Server ready. Trellis will run at Step 5.")
 
-BG_OUTPUT_DIR = "/Users/nguyenletruong/3d/bg_removal/output"
+BG_OUTPUT_DIR = "g:/in3d/bg_removal/output"
 os.makedirs(BG_OUTPUT_DIR, exist_ok=True)
 app.mount("/api/bg_output", StaticFiles(directory=BG_OUTPUT_DIR), name="bg_output")
 
-GEOMETRY_OUTPUT_DIR = "/Users/nguyenletruong/3d/geometry/output"
+GEOMETRY_OUTPUT_DIR = "g:/in3d/geometry/output"
 os.makedirs(GEOMETRY_OUTPUT_DIR, exist_ok=True)
 app.mount("/api/geometry_output", StaticFiles(directory=GEOMETRY_OUTPUT_DIR), name="geometry_output")
 
-OUTPUT_FILE = os.path.join("/Users/nguyenletruong/3d/TripoSR", "output", "0", "mesh.obj")
+OUTPUT_FILE = os.path.join("g:/in3d/TripoSR", "output", "0", "mesh.obj")
 
 # Biến toàn cục để theo dõi % tiến độ
 generation_progress = 0
@@ -74,7 +149,7 @@ def remove_bg(file: UploadFile = File(...)):
         
         # Run remove_bg.py
         process = subprocess.Popen(
-            [sys.executable, "/Users/nguyenletruong/3d/bg_removal/remove_bg.py", "--input", temp_image_path, "--output", BG_OUTPUT_DIR],
+            [sys.executable, "g:/in3d/bg_removal/remove_bg.py", "--input", temp_image_path, "--output", BG_OUTPUT_DIR],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
@@ -105,7 +180,7 @@ def remove_bg(file: UploadFile = File(...)):
         bg_progress = 85
         
         process_canon = subprocess.Popen(
-            [sys.executable, "/Users/nguyenletruong/3d/bg_removal/canonicalize.py", "--input", alpha_path, "--output", canonical_path, "--size", "1024"],
+            [sys.executable, "-u", "g:/in3d/bg_removal/canonicalize.py", "--input", alpha_path, "--output", canonical_path, "--size", "1024"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
@@ -165,7 +240,7 @@ def process_geometry(base_name: str = Form(...)):
         geometry_progress = 20
         
         process = subprocess.Popen(
-            [sys.executable, "/Users/nguyenletruong/3d/geometry/geometry.py", "--input", target_image_path, "--output", GEOMETRY_OUTPUT_DIR],
+            [sys.executable, "-u", "g:/in3d/geometry/geometry.py", "--input", target_image_path, "--output", GEOMETRY_OUTPUT_DIR],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
@@ -254,14 +329,14 @@ def run_conditioning(bg_image: str = Form(None)):
         conditioning_progress = 10
         print(f"Running Stage 4: Geometry Conditioning for {target_image_path}...")
         
-        stage4_out = os.path.join("/Users/nguyenletruong/3d/geometry", "stage4_out")
+        stage4_out = os.path.join("g:/in3d/geometry", "stage4_out")
         os.makedirs(stage4_out, exist_ok=True)
         
-        depth_path = os.path.join("/Users/nguyenletruong/3d/geometry/output", f"{base_name}_depth.npy")
-        normal_path = os.path.join("/Users/nguyenletruong/3d/geometry/output", f"{base_name}_normal.png")
+        depth_path = os.path.join("g:/in3d/geometry/output", f"{base_name}_depth.npy")
+        normal_path = os.path.join("g:/in3d/geometry/output", f"{base_name}_normal.png")
         
         process4 = subprocess.Popen(
-            [sys.executable, "/Users/nguyenletruong/3d/geometry/conditioning.py", 
+            [sys.executable, "-u", "g:/in3d/geometry/conditioning.py", 
              "--canonical", target_image_path, 
              "--depth", depth_path, 
              "--normal", normal_path, 
@@ -309,8 +384,8 @@ def run_generate_3d(npz_file: str = Form(None)):
     try:
         generate_3d_progress = 10
         
-        stage4_out = os.path.join("/Users/nguyenletruong/3d/geometry", "stage4_out")
-        stage5_out = os.path.join("/Users/nguyenletruong/3d/geometry", "stage5_out")
+        stage4_out = os.path.join("g:/in3d/geometry", "stage4_out")
+        stage5_out = os.path.join("g:/in3d/geometry", "stage5_out")
         os.makedirs(stage5_out, exist_ok=True)
         
         # Quality Gate: Check Stage 4 quality score before running SF3D
@@ -334,46 +409,63 @@ def run_generate_3d(npz_file: str = Form(None)):
         if not os.path.exists(npz_path):
             raise Exception(f"NPZ file not found: {npz_path}")
         
-        generate_3d_logs.append("Running TRELLIS 4B inference...")
-        print(f"Running Stage 5: TRELLIS 3D Reconstruction for {npz_file}...")
+        # Initialize Image3DEngine with SF3D
+        engine = Image3DEngine(backend="sf3d")
+        
+        backend_name = engine.backend.upper()
+        generate_3d_logs.append(f"Running {backend_name} inference...")
+        print(f"Running Stage 5: {backend_name} 3D Reconstruction for {npz_file}...")
         generate_3d_progress = 30
         
-        # Chạy Trellis như subprocess riêng biệt (tách memory)
-        process = subprocess.Popen(
-            [TRELLIS_VENV_PYTHON, TRELLIS_RUNNER, "--input", npz_path, "--output", stage5_out],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env={**os.environ, "PYTORCH_ENABLE_MPS_FALLBACK": "1", "PYTORCH_MPS_HIGH_WATERMARK_RATIO": "0.0"}
-        )
+        # Chạy backend
+        process = engine.generate3D(npz_path, stage5_out, base_name)
         
-        # Stream logs
-        for line in process.stdout:
-            line = line.strip()
-            if line:
-                print(line)
-                generate_3d_logs.append(line)
-                if "Inference complete" in line:
-                    generate_3d_progress = 70
-                elif "Extracting" in line:
-                    generate_3d_progress = 80
-                elif "COMPLETE" in line:
-                    generate_3d_progress = 90
-        
-        process.wait()
-        
-        if process.returncode != 0:
-            generate_3d_progress = -1
-            raise Exception("TRELLIS inference failed")
+        if process is True:
+            # Synchronous execution succeeded
+            generate_3d_progress = 100
+            generate_3d_logs.append("Inference complete.")
+        else:
+            # Stream logs for subprocess
+            for line in process.stdout:
+                line = line.strip()
+                if line:
+                    print(line)
+                    generate_3d_logs.append(line)
+                    if "Inference complete" in line:
+                        generate_3d_progress = 70
+                    elif "Cleaning mesh" in line or "Extracting" in line:
+                        generate_3d_progress = 80
+                    elif "Generating report" in line or "COMPLETE" in line:
+                        generate_3d_progress = 90
+            
+            process.wait()
+            
+            if process.returncode != 0:
+                generate_3d_progress = -1
+            raise Exception(f"{backend_name} inference failed")
         
         # Check output exists
         glb_path = os.path.join(stage5_out, f"{base_name}_coarse_mesh.glb")
+        # In case InstantMesh saves directly as coarse_mesh.glb (like our runner does)
+        # Wait, our instantmesh_runner saves to coarse_mesh.glb, but the server expects {base_name}_coarse_mesh.glb
+        # I need to rename or ensure it works! Let's rename the output of the runner.
+        coarse_glb = os.path.join(stage5_out, "coarse_mesh.glb")
+        if os.path.exists(coarse_glb):
+            os.rename(coarse_glb, glb_path)
+            
+        # Also rename obj, preview, report
+        for ext, src_name in [(".obj", "coarse_mesh.obj"), (".png", "mesh_preview.png"), (".json", "mesh_report.json")]:
+            src_path = os.path.join(stage5_out, src_name)
+            dst_path = os.path.join(stage5_out, f"{base_name}{ext}")
+            if os.path.exists(src_path):
+                os.rename(src_path, dst_path)
+
         if not os.path.exists(glb_path):
             generate_3d_progress = -1
             raise Exception(f"Output mesh not found: {glb_path}")
         
         generate_3d_progress = 100
-        generate_3d_logs.append("TRELLIS 3D reconstruction complete.")
+        generate_3d_logs.append(f"{backend_name} 3D reconstruction complete.")
             
         cache_buster = str(uuid.uuid4())
         return {
@@ -404,8 +496,8 @@ def run_texture(bg_image: str = Form(None)):
         texture_progress = 10
         print(f"Running Stage 6: Texture Engine for {base_name}...")
         
-        stage5_out = os.path.join("/Users/nguyenletruong/3d/geometry", "stage5_out")
-        stage6_out = os.path.join("/Users/nguyenletruong/3d/geometry", "stage6_out")
+        stage5_out = os.path.join("g:/in3d/geometry", "stage5_out")
+        stage6_out = os.path.join("g:/in3d/geometry", "stage6_out")
         os.makedirs(stage6_out, exist_ok=True)
         
         # Stable Fast 3D already generates a textured mesh in Stage 5!
@@ -435,7 +527,7 @@ def run_texture(bg_image: str = Form(None)):
 
 @app.get("/api/stage4_out/{filename}")
 async def get_stage4_out(filename: str):
-    stage4_out = "/Users/nguyenletruong/3d/geometry/stage4_out"
+    stage4_out = "g:/in3d/geometry/stage4_out"
     file_path = os.path.join(stage4_out, filename)
     if os.path.exists(file_path):
         return FileResponse(file_path)
@@ -443,7 +535,7 @@ async def get_stage4_out(filename: str):
 
 @app.get("/api/stage6_out/{filename}")
 async def get_stage6_out(filename: str):
-    stage6_out = "/Users/nguyenletruong/3d/geometry/stage6_out"
+    stage6_out = "g:/in3d/geometry/stage6_out"
     file_path = os.path.join(stage6_out, filename)
     if os.path.exists(file_path):
         return FileResponse(file_path)
@@ -451,7 +543,7 @@ async def get_stage6_out(filename: str):
 
 @app.get("/api/models/{filename}")
 async def get_model(filename: str):
-    stage5_out = "/Users/nguyenletruong/3d/geometry/stage5_out"
+    stage5_out = "g:/in3d/geometry/stage5_out"
     file_path = os.path.join(stage5_out, filename)
     if os.path.exists(file_path):
         return FileResponse(file_path)

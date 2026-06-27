@@ -49,3 +49,5 @@ trellis-mac/.git
 
 # HuggingFace cache
 .cache/
+
+.env

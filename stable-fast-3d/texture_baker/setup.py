@@ -41,6 +41,7 @@ def get_extensions():
         else [],
         "nvcc": [
             "-O3" if not debug_mode else "-O0",
+            "-allow-unsupported-compiler",
         ],
     }
     if debug_mode:
@@ -54,7 +55,9 @@ def get_extensions():
         extra_compile_args["nvcc"].append("-g")
         extra_link_args.extend(["-O0", "-g"])
 
-    define_macros = []
+    define_macros = [
+        ("_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH", "1")
+    ]
     extensions = []
     libraries = []
 

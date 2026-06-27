@@ -72,43 +72,9 @@ def process_image(image_path, output_dir):
     mask_biref = pred_pil.resize((new_w, new_h), Image.LANCZOS)
     mask_biref_arr = np.array(mask_biref)
     
-    # 4. Load SAM2
-    print("Loading SAM2...")
-    checkpoint_path = os.path.join(os.path.dirname(__file__), "sam2_hiera_small.pt")
-    download_sam2_checkpoint(checkpoint_path)
-    
-    sam2_model = build_sam2("sam2_hiera_s.yaml", checkpoint_path, device=device)
-    predictor = SAM2ImagePredictor(sam2_model)
-    
-    print("Running SAM2...")
-    img_arr = np.array(img)
-    predictor.set_image(img_arr)
-    
-    # Dùng mask của BiRefNet để lấy Bounding Box cho SAM2
-    y_indices, x_indices = np.where(mask_biref_arr > 128)
-    if len(y_indices) > 0 and len(x_indices) > 0:
-        x_min, x_max = np.min(x_indices), np.max(x_indices)
-        y_min, y_max = np.min(y_indices), np.max(y_indices)
-        
-        pad = 20
-        x_min, x_max = max(0, x_min - pad), min(new_w, x_max + pad)
-        y_min, y_max = max(0, y_min - pad), min(new_h, y_max + pad)
-        
-        input_box = np.array([x_min, y_min, x_max, y_max])
-        
-        masks, scores, logits = predictor.predict(
-            point_coords=None,
-            point_labels=None,
-            box=input_box[None, :],
-            multimask_output=False,
-        )
-        mask_sam2_arr = (masks[0] * 255).astype(np.uint8)
-    else:
-        mask_sam2_arr = np.zeros_like(mask_biref_arr)
-        
-    # 5. Fusion and Post-processing
-    print("Fusing masks and post-processing...")
-    mask_final = np.maximum(mask_biref_arr, mask_sam2_arr)
+    # Bỏ qua SAM2 để giữ lại toàn bộ các chủ thể (nhiều người) và tiết kiệm VRAM cho 1050ti
+    # (SAM2 bbox query thường làm mất các chủ thể phụ nếu nằm chung 1 bbox lớn)
+    mask_final = mask_biref_arr
     
     # Làm mượt (Smooth) và Feather viền 1-3px
     kernel = np.ones((3, 3), np.uint8)
@@ -137,7 +103,7 @@ def process_image(image_path, output_dir):
     end_time = time.time()
     
     print("=" * 40)
-    print("✅ PROCESSING COMPLETE")
+    print("PROCESSING COMPLETE")
     print(f"Input: {image_path} ({orig_w}x{orig_h})")
     print(f"Output size: {new_w}x{new_h}")
     print(f"Saved: {output_dir}")

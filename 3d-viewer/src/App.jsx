@@ -464,7 +464,7 @@ export default function App() {
             </div>
             {isGenerating3D ? (
               <div style={{ marginTop: '20px' }}>
-                <ProgressBar label="BƯỚC 5: Đang dựng Mesh 3D (TRELLIS 4B)..." progress={generate3dProgress} />
+                <ProgressBar label="BƯỚC 5: Đang dựng Mesh 3D (InstantMesh)..." progress={generate3dProgress} />
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
@@ -477,7 +477,7 @@ export default function App() {
 
         {step === 5 && !isGenerating3D && generate3dData && (
           <div style={{ marginTop: '20px', background: 'rgba(0,0,0,0.4)', padding: '20px', borderRadius: '12px' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>BƯỚC 5: 3D RECONSTRUCTION (TRELLIS 4B)</h3>
+            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>BƯỚC 5: 3D RECONSTRUCTION (InstantMesh)</h3>
             <p style={{ fontSize: '14px', color: '#aaa', marginBottom: '15px' }}>Lưới Mesh đã được tạo và tinh chỉnh với dữ liệu conditioning.</p>
             
             <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
