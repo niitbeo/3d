@@ -75,10 +75,8 @@ class TRELLISRunner:
         self.device = torch.device(device if torch.backends.mps.is_available() else "cpu")
         self.pipeline = Trellis2ImageTo3DPipeline.from_pretrained("microsoft/TRELLIS.2-4B")
         
-        # [MEMORY OPTIMIZATION] Convert models to float16 to save 50% RAM
-        print("[TRELLISRunner] Optimizing weights for 16GB Mac (float16)...")
-        for model in self.pipeline.models.values():
-            model.to(torch.float16)
+        # Remove manual float16 casting as it breaks MPS Sparse Matrix Multiplication
+        # Relying on PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 for memory swapping instead
             
         self.pipeline.to(self.device)
         if torch.backends.mps.is_available():
@@ -89,8 +87,7 @@ class TRELLISRunner:
         print("[TRELLISRunner] Running Generative Inference (No Texture)...")
         t0 = time.time()
         
-        # Chạy inference lấy Geometry
-        # Lưu ý: texture phase sẽ tự động bị bỏ qua nếu chúng ta chỉ lấy mesh.
+        # Chạy inference lấy Geometry (chỉ lấy mesh, bỏ qua texture để chạy nhanh hơn)
         outputs = self.pipeline.run(
             latent["rgb_pil"],
             seed=seed,
